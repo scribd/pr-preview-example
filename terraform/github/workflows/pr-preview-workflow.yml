@@ -1,0 +1,327 @@
+name: Create An ECS Deployment And Register It To App Mesh
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    outputs:
+      sha_short: ${{ steps.vars.outputs.sha_short }}
+      ref_short: ${{ steps.vars.outputs.ref_short }}
+      slack-thread-ts: ${{ fromJSON(steps.send-message.outputs.slack-result).response.message.ts }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set outputs
+        id: vars
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+          echo "::set-output name=ref_short::$(echo ${{ github.ref }} | cut -d / -f 3- | sed -e 's/[^a-zA-Z0-9_]/_/g')"
+
+      - name: Slack - Deployment Beginning
+        uses: archive/github-actions-slack@v2.2.1
+        id: send-message
+        with:
+          slack-function: send-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+                <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Build>: :beachball:
+                Preview: ...
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          registries: 1234567890
+
+      - name: Cache Docker layers for Rails Context Base
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache-my-app
+          key: ${{ runner.os }}-buildx-my-app-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-my-app-${{ github.ref }}-
+            ${{ runner.os }}-buildx-my-app-
+
+      - name: Build my-app
+        id: my-app
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          push: true
+          tags: |
+            1234567890.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha_short }}
+            1234567890.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.ref_short }}
+          cache-from: |
+            type=registry,src=1234567890.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha_short }}
+            type=registry,src=1234567890.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.ref_short }}
+            type=registry,src=1234567890.dkr.ecr.us-east-1.amazonaws.com/my-app:master
+            type=local,src=/tmp/.buildx-cache-my-app
+          cache-to: type=local,dest=/tmp/.buildx-cache-my-app-new
+
+      -
+        # Temp fix
+        # https://github.com/docker/build-push-action/issues/252
+        # https://github.com/moby/buildkit/issues/1896
+        name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache-my-app
+          mv /tmp/.buildx-cache-my-app-new /tmp/.buildx-cache-my-app
+
+      - uses: archive/github-actions-slack@v2.2.1
+        if: ${{ failure() }}
+        with:
+          slack-function: update-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-update-message-ts: ${{ fromJson(steps.send-message.outputs.slack-result).response.message.ts }}
+          slack-update-message-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+              <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Build>: :redalert:
+              <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|INVESTIGATE>
+
+      - uses: archive/github-actions-slack@v2.2.1
+        if: ${{ success() }}
+        with:
+          slack-function: update-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-update-message-ts: ${{ fromJson(steps.send-message.outputs.slack-result).response.message.ts }}
+          slack-update-message-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+              Build: :heavy_check_mark:
+              <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Preview>: ...
+
+
+  deploy:
+    name: Deploy PR Preview to ECS
+    concurrency: cd-${{ github.ref }}
+    runs-on: ubuntu-18.04
+    needs:
+      - build
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          registries: 1234567890
+
+      - uses: archive/github-actions-slack@v2.2.1
+        with:
+          slack-function: update-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-update-message-ts: ${{ needs.build.outputs.slack-thread-ts }}
+          slack-update-message-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+              Build: :heavy_check_mark:
+              <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Preview>: :beachball: started
+
+      - name: servicediscovery-service
+        id: servicediscovery-service
+        uses: scribd/amazon-servicediscovery-service@main
+        with:
+          name: ${{ github.event.pull_request.number }}
+          dns-config: |
+            {
+              "NamespaceId": "ns-ABC123",
+              "RoutingPolicy": "MULTIVALUE",
+              "DnsRecords": [
+                  {
+                      "Type": "SRV",
+                      "TTL": 10
+                  }
+              ]
+            }
+
+      - name: appmesh-virtual-node
+        uses: scribd/amazon-appmesh-virtual-node@main
+        with:
+          name: ${{ github.event.pull_request.number }}
+          mesh-name: pr-preview-mesh
+          spec: |
+            {
+              "listeners": [
+                {
+                  "portMapping": {
+                    "port": 8080,
+                    "protocol": "http"
+                  },
+                  "healthCheck": {
+                    "protocol": "tcp",
+                    "port": 8080,
+                    "healthyThreshold": 2,
+                    "unhealthyThreshold": 2,
+                    "timeoutMillis": 2000,
+                    "intervalMillis": 5000
+                  }
+                }
+              ],
+              "serviceDiscovery": {
+                "awsCloudMap": {
+                  "namespaceName": "pr-preview-mesh.example.com",
+                  "serviceName": "${{ github.event.pull_request.number }}"
+                }
+              },
+              "logging": {
+                "accessLog": {
+                  "file": {
+                    "path": "/dev/stdout"
+                  }
+                }
+              }
+            }
+
+      - name: appmesh-virtual-router
+        uses: scribd/amazon-appmesh-virtual-router@main
+        with:
+          name: ${{ github.event.pull_request.number }}
+          mesh-name: pr-preview-mesh
+          spec: |
+            {
+              "listeners": [
+                  {
+                      "portMapping": {
+                          "port": 80,
+                          "protocol": "http"
+                      }
+                  }
+              ]
+            }
+
+      - name: appmesh-route
+        uses: scribd/amazon-appmesh-route@main
+        with:
+          name: ${{ github.event.pull_request.number }}
+          mesh-name: pr-preview-mesh
+          virtual-router-name: ${{ github.event.pull_request.number }}
+          spec: |
+            {
+              "httpRoute": {
+                "action": {
+                    "weightedTargets": [
+                        {
+                            "virtualNode": "${{ github.event.pull_request.number }}",
+                            "weight": 1
+                        }
+                    ]
+                },
+                "match": {
+                    "prefix": "/"
+                }
+              }
+            }
+
+      - name: appmesh-virtual-service
+        uses: scribd/amazon-appmesh-virtual-service@main
+        with:
+          name: ${{ github.event.pull_request.number }}.pr-preview-mesh.example.com
+          mesh-name: pr-preview-mesh
+          spec: |
+            {
+              "provider": {
+                "virtualRouter": {
+                    "virtualRouterName": "${{ github.event.pull_request.number }}"
+                }
+              }
+            }
+
+      - name: appmesh-virtual-gateway-route
+        uses: scribd/amazon-appmesh-virtual-gateway-route@main
+        with:
+          name: ${{ github.event.pull_request.number }}
+          mesh-name: pr-preview-mesh
+          virtual-gateway-name: pr-preview-example-com
+          spec: |
+            {
+              "httpRoute": {
+                "action": {
+                  "target": {
+                    "virtualService": {
+                      "virtualServiceName": "${{ github.event.pull_request.number }}.pr-preview-mesh.example.com"
+                    }
+                  },
+                  "rewrite": {
+                    "hostname": {
+                      "defaultTargetHostname": "DISABLED"
+                    }
+                  }
+                },
+                "match": {
+                  "hostname": {
+                    "exact": "${{ github.event.pull_request.number }}.pr-preview.example.com"
+                  }
+                }
+              }
+            }
+
+      - name: customize-definition-files
+        run: .github/pr-preview/customize-definition-files
+        env:
+          SHORTSHA: ${{ needs.build.outputs.sha_short }}
+          PRNUMBER: ${{ github.event.pull_request.number }}
+          SERVICEREGISTRYARN: ${{ steps.servicediscovery-service.outputs.arn }}
+
+      - name: definition-files
+        run:
+          cat .github/pr-preview/*.json
+
+      - name: Register Task Definition
+        id: task-definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: .github/pr-preview/task-definition.json
+
+      - name: Deploy Service
+        uses: scribd/amazon-ecs-service@main
+        with:
+          spec-file: .github/pr-preview/service-definition.json
+          spec: |
+            {
+              "taskDefinition": "${{ steps.task-definition.outputs.task-definition-arn }}"
+            }
+
+      - uses: archive/github-actions-slack@v2.2.1
+        if: ${{ failure() }}
+        with:
+          slack-function: update-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-update-message-ts: ${{ needs.build.outputs.slack-thread-ts }}
+          slack-update-message-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+              Build: :heavy_check_mark:.
+              Preview: <https://${{ github.event.pull_request.number }}.example.com/|:redalert:>
+              <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|INVESTIGATE>
+
+      - uses: archive/github-actions-slack@v2.2.1
+        if: ${{ success() }}
+        with:
+          slack-function: update-message
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
+          slack-channel: SLACK-CHANNEL-ID
+          slack-update-message-ts: ${{ needs.build.outputs.slack-thread-ts }}
+          slack-update-message-text: |
+            <https://github.com/${{ github.repository }}/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
+              Build: :heavy_check_mark:
+              Preview: :heavy_check_mark: Preview available at <https://${{ github.event.pull_request.number }}.pr-preview.example.com/>

@@ -1,0 +1,45 @@
+[
+  {
+    "command": [],
+    "cpu": 512,
+    "dockerLabels": {
+    },
+    "entrypoint": [],
+    "environment": [
+      {"name": "APPMESH_RESOURCE_ARN", "value": "mesh/pr-preview-mesh/virtualGateway/pr-preview-example-com"}
+    ],
+    "essential": true,
+    "healthCheck": {
+      "COMMENT": "https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_HealthCheck.html",
+      "command": ["CMD-SHELL", "curl -f http://localhost:9901/ready || exit 1"],
+      "interval": 30,
+      "retries": 3,
+      "timeout": 5
+    },
+    "image": "840364872350.dkr.ecr.us-east-1.amazonaws.com/aws-appmesh-envoy:v1.18.3.0-prod",
+    "securityContext": {
+        "runAsUser": 1337
+    },
+    "memory": 64,
+    "mountPoints": [],
+    "name": "envoy",
+    "portMappings": [
+      {
+        "containerPort": 80,
+        "hostPort": 80,
+        "protocol": "tcp"
+      },
+      {
+        "containerPort": 443,
+        "hostPort": 443,
+        "protocol": "tcp"
+      },
+      {
+        "containerPort": 9901,
+        "hostPort": 9901,
+        "protocol": "tcp"
+      }
+    ],
+    "volumesFrom": []
+  }
+]

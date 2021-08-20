@@ -1,0 +1,8 @@
+#!/usr/bin/env bash 
+set -eo pipefail
+
+BASEDIR=$(dirname "$BASH_SOURCE")
+cd "$BASEDIR"
+
+sed -e 's|@SHORTSHA@|'${SHORTSHA:?}'|g; s|@PRNUMBER@|'${PRNUMBER:?}'|g; s|@SERVICEREGISTRYARN@|'${SERVICEREGISTRYARN:?}'|g' task-definition.json.template > task-definition.json
+sed -e 's|@SHORTSHA@|'${SHORTSHA:?}'|g; s|@PRNUMBER@|'${PRNUMBER:?}'|g; s|@SERVICEREGISTRYARN@|'${SERVICEREGISTRYARN:?}'|g' service-definition.json.template > service-definition.json

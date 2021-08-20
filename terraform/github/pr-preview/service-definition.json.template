@@ -1,0 +1,37 @@
+{
+    "serviceName": "@PRNUMBER@",
+    "loadBalancers": [],
+    "serviceRegistries": [
+        {
+            "registryArn": "@SERVICEREGISTRYARN@",
+            "port": 8080
+        }
+    ],
+    "cluster": "pr-preview",
+    "desiredCount": 1,
+    "launchType": "EC2",
+    "deploymentConfiguration": {
+        "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": false
+        },
+        "maximumPercent": 200,
+        "minimumHealthyPercent": 32
+    },
+    "placementConstraints": [],
+    "placementStrategy": [],
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+            "subnets": [
+                "subnet-abc123",
+                "subnet-def456"
+            ],
+            "securityGroups": [
+                "sg-123456789",
+                "sg-987654321"
+            ],
+            "assignPublicIp": "DISABLED"
+        }
+    },
+    "schedulingStrategy": "REPLICA"
+}

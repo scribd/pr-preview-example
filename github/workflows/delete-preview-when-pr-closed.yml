@@ -42,7 +42,7 @@ jobs:
 
       - name: servicediscovery-service
         id: servicediscovery-service
-        uses: scribd/amazon-servicediscovery-service@main
+        uses: scribd/amazon-servicediscovery-service-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name }}
           dns-config: |
@@ -58,7 +58,7 @@ jobs:
             }
 
       - name: Delete Service
-        uses: scribd/amazon-ecs-service@main
+        uses: scribd/amazon-ecs-service-action@v1
         with:
           action: delete
           spec: |
@@ -69,13 +69,13 @@ jobs:
 
       - name: delete servicediscovery-service
         id: delete-servicediscovery-service
-        uses: scribd/amazon-servicediscovery-service@main
+        uses: scribd/amazon-servicediscovery-service-action@v1
         with:
           id: ${{ steps.servicediscovery-service.outputs.id }}
           action: delete
 
       - name: appmesh-route
-        uses: scribd/amazon-appmesh-route@main
+        uses: scribd/amazon-appmesh-route-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name}}
           mesh-name: staging-mesh
@@ -83,14 +83,14 @@ jobs:
           action: delete
 
       - name: appmesh-virtual-node
-        uses: scribd/amazon-appmesh-virtual-node@main
+        uses: scribd/amazon-appmesh-virtual-node-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name }}
           mesh-name: staging-mesh
           action: delete
 
       - name: appmesh-virtual-gateway-route
-        uses: scribd/amazon-appmesh-virtual-gateway-route@main
+        uses: scribd/amazon-appmesh-virtual-gateway-route-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name }}
           mesh-name: staging-mesh
@@ -98,14 +98,14 @@ jobs:
           action: delete
 
       - name: appmesh-virtual-service
-        uses: scribd/amazon-appmesh-virtual-service@main
+        uses: scribd/amazon-appmesh-virtual-service-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name }}.staging-mesh.slideshare-ei.net
           mesh-name: staging-mesh
           action: delete
 
       - name: appmesh-virtual-router
-        uses: scribd/amazon-appmesh-virtual-router@main
+        uses: scribd/amazon-appmesh-virtual-router-action@v1
         with:
           name: ${{ steps.vars.outputs.service_name }}
           mesh-name: staging-mesh

@@ -139,7 +139,7 @@ jobs:
 
       - name: servicediscovery-service
         id: servicediscovery-service
-        uses: scribd/amazon-servicediscovery-service@main
+        uses: scribd/amazon-servicediscovery-service-action@v1
         with:
           name: ${{ github.event.pull_request.number }}
           dns-config: |
@@ -155,7 +155,7 @@ jobs:
             }
 
       - name: appmesh-virtual-node
-        uses: scribd/amazon-appmesh-virtual-node@main
+        uses: scribd/amazon-appmesh-virtual-node-action@v1
         with:
           name: ${{ github.event.pull_request.number }}
           mesh-name: pr-preview-mesh
@@ -193,7 +193,7 @@ jobs:
             }
 
       - name: appmesh-virtual-router
-        uses: scribd/amazon-appmesh-virtual-router@main
+        uses: scribd/amazon-appmesh-virtual-router-action@v1
         with:
           name: ${{ github.event.pull_request.number }}
           mesh-name: pr-preview-mesh
@@ -210,7 +210,7 @@ jobs:
             }
 
       - name: appmesh-route
-        uses: scribd/amazon-appmesh-route@main
+        uses: scribd/amazon-appmesh-route-action@v1
         with:
           name: ${{ github.event.pull_request.number }}
           mesh-name: pr-preview-mesh
@@ -233,7 +233,7 @@ jobs:
             }
 
       - name: appmesh-virtual-service
-        uses: scribd/amazon-appmesh-virtual-service@main
+        uses: scribd/amazon-appmesh-virtual-service-action@v1
         with:
           name: ${{ github.event.pull_request.number }}.pr-preview-mesh.example.com
           mesh-name: pr-preview-mesh
@@ -247,7 +247,7 @@ jobs:
             }
 
       - name: appmesh-virtual-gateway-route
-        uses: scribd/amazon-appmesh-virtual-gateway-route@main
+        uses: scribd/amazon-appmesh-virtual-gateway-route-action@v1
         with:
           name: ${{ github.event.pull_request.number }}
           mesh-name: pr-preview-mesh
@@ -293,7 +293,7 @@ jobs:
           task-definition: .github/pr-preview/task-definition.json
 
       - name: Deploy Service
-        uses: scribd/amazon-ecs-service@main
+        uses: scribd/amazon-ecs-service-action@v1
         with:
           spec-file: .github/pr-preview/service-definition.json
           spec: |

@@ -1,11 +1,11 @@
 # Pull Request Previews with Github Actions, AWS App Mesh, and ECS
 
-Let's say you have an ECS based service: `www.example.com`, and when someone opens a pull request, you'd like to be able to preview what that branch looks like when deployed. 
+Let's say you have an ECS based service: `www.example.com`, and when someone opens a pull request, you'd like to be able to preview what that branch looks like when deployed.
 
-Our approach is to create a Github Actions workflow that 
+Our approach is to create a Github Actions workflow that
   - builds and deploys an ECS Service as Virtual Nodes
   - creates an App Mesh Virtual Service that points to the Virtual Nodes
-  - creates an App Mesh Virtual Gateway Route that routes `<pr-number>.pr-preview.example.com` to that Virtual Service. 
+  - creates an App Mesh Virtual Gateway Route that routes `<pr-number>.pr-preview.example.com` to that Virtual Service.
 
 ## Application Infrastructure
 
@@ -15,7 +15,7 @@ Broadly speaking, the following is created:
 
 - An Elastic Load Balancer
 - An ECS cluster
-- A DNS entry for `*.pr-preview.example.com` pointing to the Elastic Load Balancer. 
+- A DNS entry for `*.pr-preview.example.com` pointing to the Elastic Load Balancer.
 - An AppMesh Virtual Gateway configuration registered to the ELB
 - An AppMesh Virtual Gateway ECS deployment
 - IAM and other resources for use by the application.

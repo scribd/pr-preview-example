@@ -1,0 +1,224 @@
+name: Register an App Mesh Virtual Node to an App Mesh Virtual Gateway
+description: |
+  Given an application and an App Mesh Virtual Gateway, enable hostname based routing to that application from that Virtual Gateway.
+  
+  Specifically:
+  - Registers a servicediscovery service in the provided namespace
+  - Creates an App Mesh Virtual Node using the given spec
+  - Creates an App Mesh Virtual Router listening on port 80
+  - Creates an App Mesh Route that passes all traffic to the Virtual Node
+  - Creates an App Mesh Virtual Service
+  - Creates an App Mesh Virtual Gateway Route that matches on ${{ inputs.name }}.${{ servicediscovery-namespace-name }}
+    - If `virtual-gateway-route-namespace` is given, matches on ${{ inputs.name }}.${{ virtual-gateway-route-namespace }}
+  
+  A full stack needs:
+  - An App Mesh Virtual Gateway connected to a load balancer and DNS records to the North.
+  - A web server with an envoy container to be configured by the App Mesh Virtual Node definition, for example an ECS deployment, to the South.
+  
+  Please use `aws-actions/configure-aws-credentials@v1` to set AWS credentials before calling this action.
+
+inputs:
+  # example: hostname-example
+  name:
+    required: true
+    type: string
+
+  # example: ns-12345
+  servicediscovery-namespace-id:
+    required: true
+    type: string
+
+  # example: pr-preview-mesh.example.com
+  servicediscovery-namespace-name:
+    required: true
+    type: string
+
+  # example: pr-preview-mesh
+  mesh-name:
+    required: true
+    type: string
+
+  # example: domain-example.com
+  virtual-gateway-route-namespace:
+    required: false
+    type: string
+
+  # example: pr-preview-mesh-example-com
+  virtual-gateway-name:
+    required: true
+    type: string
+
+  # example: |
+  #  {
+  #    "listeners": [
+  #      {
+  #        "portMapping": {
+  #          "port": 8080,
+  #          "protocol": "http"
+  #        },
+  #        "healthCheck": {
+  #          "protocol": "tcp",
+  #          "port": 8080,
+  #          "healthyThreshold": 2,
+  #          "unhealthyThreshold": 2,
+  #          "timeoutMillis": 2000,
+  #          "intervalMillis": 5000
+  #        }
+  #      }
+  #    ],
+  #    "serviceDiscovery": {
+  #      "awsCloudMap": {
+  #        "namespaceName": "pr-preview-mesh.example.com",
+  #        "serviceName": "hostname-example"
+  #      }
+  #    },
+  #    "logging": {
+  #      "accessLog": {
+  #        "file": {
+  #          "path": "/dev/stdout"
+  #        }
+  #      }
+  #    }
+  #  }
+  virtual-node-spec:
+    required: true
+    type: string
+
+outputs:
+  service-discovery-service-arn:
+    description: The ARN of the Service Discovery Service.
+    value: ${{ steps.servicediscovery-service.outputs.arn }}
+  service-discovery-service-id:
+    description: The ID of the Service Discovery Service.
+    value: ${{ steps.servicediscovery-service.outputs.id }}
+  appmesh-virtual-node-arn:
+    description: The ARN of the App Mesh Virtual Node.
+    value: ${{ steps.appmesh-virtual-node.outputs.arn }}
+  appmesh-virtual-router-arn:
+    description: The ARN of the App Mesh Virtual Router.
+    value: ${{ steps.appmesh-virtual-router.outputs.arn }}
+  appmesh-route-arn:
+    description: The ARN of the App Mesh Virtual Router Route.
+    value: ${{ steps.appmesh-route.outputs.arn }}
+  appmesh-virtual-service-arn:
+    description: The ARN of the App Mesh Virtual Service.
+    value: ${{ steps.appmesh-virtual-service.outputs.arn }}
+  appmesh-virtual-gateway-route-arn:
+    description: The ARN of the App Mesh Virtual Gateway Route.
+    value: ${{ steps.appmesh-virtual-gateway-route.outputs.arn }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: servicediscovery-service
+      id: servicediscovery-service
+      uses: scribd/amazon-servicediscovery-service-action@v1
+      with:
+        name: ${{ inputs.name }}
+        dns-config: |
+          {
+            "NamespaceId": "${{ inputs.servicediscovery-namespace-id }}",
+            "RoutingPolicy": "MULTIVALUE",
+            "DnsRecords": [
+                {
+                    "Type": "SRV",
+                    "TTL": 10
+                }
+            ]
+          }
+
+    ##
+    # Definition for the envoy container(s) connecting the application to the service mesh.
+    - name: appmesh-virtual-node
+      uses: scribd/amazon-appmesh-virtual-node-action@v1
+      with:
+        name: ${{ inputs.name }}
+        mesh-name: ${{ inputs.mesh-name }}
+        spec: ${{ inputs.virtual-node-spec }}
+
+    - name: appmesh-virtual-router
+      uses: scribd/amazon-appmesh-virtual-router-action@v1
+      with:
+        name: ${{ inputs.name }}
+        mesh-name: ${{ inputs.mesh-name }}
+        spec: |
+          {
+            "listeners": [
+                {
+        
+                    "portMapping": {
+                        "port": 80,
+                        "protocol": "http"
+                    }
+                }
+            ]
+          }
+
+    - name: appmesh-route
+      uses: scribd/amazon-appmesh-route-action@v1
+      with:
+        name: ${{ inputs.name }}
+        mesh-name: ${{ inputs.mesh-name }}
+        virtual-router-name: ${{ inputs.name }}
+        spec: |
+          {
+            "httpRoute": {
+              "action": {
+                  "weightedTargets": [
+                      {
+                          "virtualNode": "${{ inputs.name }}",
+                          "weight": 100
+                      }
+                  ]
+              },
+              "match": {
+                  "prefix": "/"
+              }
+            }
+          }
+
+    - name: appmesh-virtual-service
+      uses: scribd/amazon-appmesh-virtual-service-action@v1
+      with:
+        name: ${{ inputs.name }}.${{ inputs.servicediscovery-namespace-name }}
+        mesh-name: ${{ inputs.mesh-name }}
+        spec: |
+          {
+            "provider": {
+              "virtualRouter": {
+                  "virtualRouterName": "${{ inputs.name }}"
+              }
+            }
+          }
+
+    ##
+    # A route definition for the envoy container(s) connecting the service mesh to the consumer.
+    - name: appmesh-virtual-gateway-route
+      uses: scribd/amazon-appmesh-virtual-gateway-route-action@v1
+      with:
+        name: ${{ inputs.name }}
+        mesh-name: ${{ inputs.mesh-name }}
+        virtual-gateway-name: ${{ inputs.virtual-gateway-name }}
+        spec: |
+          {
+            "httpRoute": {
+              "action": {
+                "target": {
+                  "virtualService": {
+                    "virtualServiceName": "${{ inputs.name }}.${{ inputs.servicediscovery-namespace-name }}"
+                  }
+                },
+                "rewrite": {
+                  "hostname": {
+                    "defaultTargetHostname": "DISABLED"
+                  }
+                }
+              },
+              "match": {
+                "hostname": {
+                  "exact": "${{ inputs.name }}.${{ inputs.virtual-gateway-route-namespace || inputs.servicediscovery-namespace-name }}"
+                }
+              }
+            }
+          }
+

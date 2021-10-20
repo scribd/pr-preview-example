@@ -1,5 +1,16 @@
 # Pull Request Previews with Github Actions, AWS App Mesh, and ECS
 
+## Reducing Deployment Lead Time with Pull Request Previews. 
+
+Deployment Lead Time is my foremost key performance indicator for organizations. As a company transitions from a scrappy startup in Horizon 3 (focus on finding the effective product/market fit) through a medium business in Horizon 2 (developing the systems to efficiently generate profits) to an enterprise in Horizon 1 (developing economies of scale), Deployment Lead Time becomes encumbered with more and more QA. The goal of Pull Request Previews is to introduce a framework by which this QA process can start at the beginning of the deployment lifecycle. By adding automation to this Pull Request Previews, an organization can start testing as soon as the developer opens the pull request, rather than waiting for a staging environment to become ready. 
+
+## Using this Github Action
+
+### Set up: 
+
+The prerequisites for this github action are conveniently setup for you in [the terraform directory](/terraform)
+
+
 Let's say you have an ECS based service: `www.example.com`, and when someone opens a pull request, you'd like to be able to preview what that branch looks like when deployed. 
 
 Our approach is to create a Github Actions workflow that 

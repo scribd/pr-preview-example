@@ -4,14 +4,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     outputs:
       sha_short: ${{ steps.vars.outputs.sha_short }}
       ref_short: ${{ steps.vars.outputs.ref_short }}
       slack-thread-ts: ${{ fromJSON(steps.send-message.outputs.slack-result).response.message.ts }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set outputs
         id: vars
         run: |
@@ -108,11 +108,11 @@ jobs:
   deploy:
     name: Deploy PR Preview to ECS
     concurrency: cd-${{ github.ref }}
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     needs:
       - build
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:

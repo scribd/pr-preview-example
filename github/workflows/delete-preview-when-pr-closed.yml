@@ -12,9 +12,9 @@ jobs:
   delete-deploy:
     name: Delete the deployment
     concurrency: delete-${{ github.event.pull_request.number || github.event.inputs.service_name }}
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set outputs
         id: vars
         run: |

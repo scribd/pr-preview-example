@@ -22,17 +22,6 @@ jobs:
           echo "::set-output name=ref_short::$(echo ${{ github.ref }} | cut -d / -f 3- | sed -e 's/[^a-zA-Z0-9_]/_/g')"
           echo "::set-output name=service_name::${{ github.event.pull_request.number || github.event.inputs.service_name }}"
 
-      - name: Slack - Deployment Beginning
-        uses: archive/github-actions-slack@v2.2.1
-        id: send-message
-        with:
-          slack-function: send-message
-          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_USER_OAUTH_ACCESS_TOKEN }}
-          slack-channel: C02A6RXJWPL
-          slack-text: |
-            <https://github.com/SlideShareCorp/slideshare-web-app/pull/${{github.event.pull_request.number}}|${{ github.event.pull_request.number }}>: ${{ github.head_ref }}
-                <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id}}|Deleting Preview>: :hammerping:
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:

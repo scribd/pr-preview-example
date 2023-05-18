@@ -15,8 +15,8 @@ jobs:
       - name: Set outputs
         id: vars
         run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-          echo "::set-output name=ref_short::$(echo ${{ github.ref }} | cut -d / -f 3- | sed -e 's/[^a-zA-Z0-9_]/_/g')"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "ref_short=$(echo ${{ github.ref }} | cut -d / -f 3- | sed -e 's/[^a-zA-Z0-9_]/_/g')" >> $GITHUB_OUTPUT
 
       - name: Slack - Deployment Beginning
         uses: archive/github-actions-slack@v2.2.1
